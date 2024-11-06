@@ -61,65 +61,11 @@ impl<T: BufRead> Parser<T> {
         Self { buffer }
     }
 
-    pub fn parse(self: &mut Self, line: &String) -> Value {
-        let mut parser = Parser::new(BufReader::new(line.as_bytes()));
-        let mut result = Value::Null;
+    pub fn parse(self: &mut Self) -> Value {
 
-        while let Some(line) = self.next() {
-            let line = match line {
-                Ok(l) => l,
-                Err(_) => continue,
-            };
-            let _type = match line.chars().nth(0) {
-                Some(t) => t,
-                None => return Value::Error("Incorrect command format".to_string()),
-            };
-            let command = line[1..].to_string();
-            println!("Parsing command {} {}", _type, command);
-            result = match _type {
-                '+' => Value::String(command),
-                '-' => Value::Error(command),
-                ':' => Value::Number(command.parse().unwrap()),
-                '$' => {
-                    if command == "-1" {
-                        return Value::Null;
-                    }
-                    let text = parser.next().unwrap().unwrap();
-                    Value::String(text)
-                }
-                '*' => {
-                    let count = command.parse().unwrap();
-                    let arr: Vec<Value> = Vec::with_capacity(count);
-                    Value::Array(arr)
-                }
-                _ => Value::Null,
-            };
-        }
-        result
-    }
-}
-
-// fn parse_number(line: &String) -> Value {
-//     let number = line[1..].trim();
-//     match number.parse::<f64>() {
-//         Ok(n) => Value::Number(n),
-//         Err(err) => Value::Error(err.to_string() + " " + number)
-//     }
-// }
-
-// fn split_array(line: &String) -> Vec<String> {
-//     // let count = line.chars().nth(1).unwrap_or('0').to;
-//     // let count = count.parse
-// }
-
-pub fn parse(line: &String) -> Value {
-    let mut parser = Parser::new(BufReader::new(line.as_bytes()));
-    let mut result = Value::Null;
-
-    while let Some(line) = parser.next() {
-        let line = match line {
+        let line = match self.next().unwrap() {
             Ok(l) => l,
-            Err(_) => continue,
+            Err(_) => return Value::Error("Incorrect value".to_string()),
         };
         let _type = match line.chars().nth(0) {
             Some(t) => t,
@@ -127,7 +73,7 @@ pub fn parse(line: &String) -> Value {
         };
         let command = line[1..].to_string();
         println!("Parsing command {} {}", _type, command);
-        result = match _type {
+        match _type {
             '+' => Value::String(command),
             '-' => Value::Error(command),
             ':' => Value::Number(command.parse().unwrap()),
@@ -135,37 +81,28 @@ pub fn parse(line: &String) -> Value {
                 if command == "-1" {
                     return Value::Null;
                 }
-                let text = parser.next().unwrap().unwrap();
+                let text = self.next().unwrap().unwrap();
+                println!("get text {text}");
                 Value::String(text)
             }
             '*' => {
                 let count = command.parse().unwrap();
-                let arr: Vec<Value> = Vec::with_capacity(count);
+                println!("parse array with size {count}");
+                let mut arr: Vec<Value> = Vec::with_capacity(count);
+                for _ in 0..count {
+                    println!("push to array");
+                    arr.push(self.parse());
+                }
                 Value::Array(arr)
             }
             _ => Value::Null,
-        };
+        }
     }
-    result
-    // for line in parser {
+}
 
-    // }
-    // let commands = line.split("\r\n");
-    // if line == "$-1\r\n" || line == "*-1\r\n" {}
-    // let _type = match line.chars().nth(0) {
-    //     Some(t) => t,
-    //     None => return Value::Error("Incorrect command format".to_string())
-    // };
-    // // let value =
-    // match _type {
-    //     '+' => Value::String(line[1..].trim().to_string()),
-    //     '-' => Value::Error(line[1..].trim().to_string()),
-    //     ':' => parse_number(&line),
-    //     '$' => Value::String(line[1..].trim().to_string()),
-    //     '*' => Value::Array(vec![]),
-    //     _ => Value::Null
-    // }
-    // return Value::Null;
+pub fn parse(line: &String) -> Value {
+    let mut parser = Parser::new(BufReader::new(line.as_bytes()));
+    parser.parse()
 }
 
 #[cfg(test)]
@@ -193,7 +130,7 @@ mod tests {
         assert_eq!(
             value,
             Value::Array(vec![
-                Value::String("ping".to_string()),
+                Value::String("echo".to_string()),
                 Value::String("hello world".to_string()),
             ])
         );
@@ -245,5 +182,29 @@ mod tests {
         let line = ":123\r\n";
         let value = parse(&line.to_string());
         assert_eq!(value, Value::Number(123.0));
+    }
+
+    #[test]
+    fn test_nested_array() {
+        let line = "*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Foo\r\n-Bar\r\n";
+        let value = parse(&line.to_string());
+        assert_eq!(value, Value::Array(vec![
+            Value::Array(vec![
+                Value::Number(1.0),
+                Value::Number(2.0),
+                Value::Number(3.0),
+            ]),
+            Value::Array(vec![
+                Value::String("Foo".to_string()),
+                Value::Error("Bar".to_string()),
+            ])
+        ]));
+    }
+
+    #[test]
+    fn test_large_text() {
+        let line = "$11\r\nhello\nworld";
+        let value = parse(&line.to_string());
+        assert_eq!(value, Value::String("hello\nworld".to_string()));
     }
 }

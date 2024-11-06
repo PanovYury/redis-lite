@@ -194,13 +194,13 @@ mod tests {
 
     #[test]
     fn test_large_text() {
-        let value = parse("$11\r\nhello\nworld");
+        let value = parse("$11\r\nhello\nworld\r\n");
         assert_eq!(value, Value::String("hello\nworld".to_string()));
     }
 
     #[test]
     fn test_large_text_with_crlf() {
-        let value = parse("$12\r\nhello\r\nworld");
+        let value = parse("$12\r\nhello\r\nworld\r\n");
         assert_eq!(value, Value::String("hello\r\nworld".to_string()));
     }
 }

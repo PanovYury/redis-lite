@@ -1,9 +1,13 @@
-use std::collections::HashMap;
+use std::{env, io::BufReader};
 
-use redis_lite::{resp::parse, value::Value};
+use redis_lite::resp::Parser;
 
 fn main() {
-    let line = "$-1\r\n";
-    let value = parse(&line.to_string());
-    println!("{:?}", value);
+    match env::args().nth(1) {
+        Some(line) => {
+            let mut parser = Parser::new(BufReader::new(line.as_bytes()));
+            println!("{:?}", parser.parse());
+        }
+        None => {}
+    }
 }
